@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OP/ED CHART — Calificaciones de Openings y Endings</title>
+<meta name="description" content="Catálogo y ranking de openings y endings de anime, calificado por la comunidad.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%BA%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="scanlines" aria-hidden="true"></div>
+
+<header class="site-header">
+  <div class="header-inner">
+    <div class="brand">
+      <span class="brand-mark">OP/ED</span>
+      <span class="brand-sub">CHART</span>
+    </div>
+
+    <div class="admin-area">
+      <button id="adminToggleBtn" class="btn btn-ghost" type="button">Acceder como admin</button>
+
+      <div id="adminPanel" class="admin-panel hidden">
+        <label for="adminPasswordInput">Contraseña de admin</label>
+        <input type="password" id="adminPasswordInput" placeholder="••••••••" autocomplete="off">
+        <button id="adminSubmitBtn" class="btn btn-primary" type="button">Entrar</button>
+        <p id="adminError" class="form-error hidden">Contraseña incorrecta.</p>
+      </div>
+
+      <div id="adminBadge" class="admin-badge hidden">
+        <span class="dot"></span> MODO ADMIN
+        <button id="adminLogoutBtn" class="link-btn" type="button">Salir</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div id="dbStatusBanner" class="db-status hidden"></div>
+
+<div class="layout">
+
+  <button id="sidebarToggle" class="sidebar-toggle-mobile" type="button" aria-label="Mostrar catálogo" aria-expanded="false">
+    ☰ Catálogo
+  </button>
+  <div id="sidebarOverlay" class="sidebar-overlay hidden"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <h2>Catálogo</h2>
+      <span class="sidebar-hint">clic en la miniatura ▶ para ver en YouTube</span>
+    </div>
+
+    <div class="filter-tabs" role="tablist" aria-label="Filtrar por tipo">
+      <button class="filter-btn active" data-filter="all" type="button">Todos</button>
+      <button class="filter-btn" data-filter="OP" type="button">Openings</button>
+      <button class="filter-btn" data-filter="ED" type="button">Endings</button>
+    </div>
+
+    <div id="adminAddForm" class="admin-add-form hidden">
+      <h3>+ Agregar OP/ED</h3>
+      <label for="newAnime">Anime</label>
+      <input type="text" id="newAnime" placeholder="Nombre del anime">
+
+      <div class="form-row">
+        <div>
+          <label for="newType">Tipo</label>
+          <select id="newType">
+            <option value="OP">Opening</option>
+            <option value="ED">Ending</option>
+          </select>
+        </div>
+        <div>
+          <label for="newNumber">Número</label>
+          <input type="text" id="newNumber" placeholder="1, 2...">
+        </div>
+      </div>
+
+      <label for="newUrl">Link de YouTube</label>
+      <input type="text" id="newUrl" placeholder="https://www.youtube.com/watch?v=...">
+
+      <button id="newEntrySubmit" class="btn btn-primary btn-block" type="button">Agregar al catálogo</button>
+      <p id="newFormError" class="form-error hidden"></p>
+    </div>
+
+    <div id="catalogList" class="catalog-list"></div>
+  </aside>
+
+  <main class="main-content">
+    <section class="hero">
+      <h1>Ranking de Openings &amp; Endings</h1>
+      <p>Explora el catálogo de la izquierda, mira el video en YouTube y escribe tu calificación aquí abajo. El promedio se actualiza al instante.</p>
+    </section>
+
+    <section class="chart">
+      <div class="chart-head">
+        <h2>Tabla de calificaciones</h2>
+        <span id="entryCount" class="entry-count"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table id="ratingTable">
+          <thead>
+            <tr>
+              <th class="col-rank">#</th>
+              <th class="col-thumb">Video</th>
+              <th class="col-title">Título</th>
+              <th class="col-avg">Promedio</th>
+              <th class="col-votes">Votos</th>
+              <th class="col-rate">Tu calificación</th>
+            </tr>
+          </thead>
+          <tbody id="ratingTableBody"></tbody>
+        </table>
+      </div>
+
+      <p id="emptyState" class="empty-msg hidden">
+        Todavía no hay openings ni endings cargados. Si eres admin, entra arriba a la derecha y agrega el primero desde el catálogo.
+      </p>
+    </section>
+  </main>
+</div>
+
+<footer class="site-footer">
+  <p>Las calificaciones se guardan en este navegador (localStorage) — cada visitante ve su propio historial de votos.</p>
+</footer>
+
+<script type="module" src="script.js"></script>
+</body>
+</html>
