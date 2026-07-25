@@ -525,12 +525,6 @@ tr.rank-3 .col-rank{ color: #CE9A6B; }
   font-size: 1.05rem;
   color: var(--gold);
 }
-.col-votes{
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-  font-size: .85rem;
-}
-
 .col-rate{ min-width: 170px; }
 .rate-input{
   width: 66px;
