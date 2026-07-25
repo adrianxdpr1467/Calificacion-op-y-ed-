@@ -9,7 +9,7 @@
 // =========================================================
 import { db, auth } from './firebase-config.js';
 import {
-  collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
+  collection, doc, addDoc, setDoc, deleteDoc,
   onSnapshot, query, orderBy,
 } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
 import {
@@ -25,14 +25,11 @@ import {
    ========================================================= */
 const ADMIN_EMAIL = 'admin@opedchart.app';
 
-const VISITOR_KEY = 'aoe_visitor_id';
-
 /* ---------------- State ---------------- */
 let entries = [];              // [{id, anime, number, type, videoId, addedAt}]
-let ratingsMap = {};           // { entryId: { visitorId: score } }
+let ratingsMap = {};           // { entryId: score }
 let currentFilter = 'all';
 let isAdmin = false;
-let visitorId = null;
 let entriesLoaded = false;
 let ratingsLoaded = false;
 
@@ -80,16 +77,6 @@ function hideDbStatusIfReady() {
 }
 showDbStatus('Conectando con la base de datos…', 'info');
 
-/* ---------------- Visitor id (solo local, para saber "tu" voto) ---------------- */
-function getVisitorId() {
-  let id = localStorage.getItem(VISITOR_KEY);
-  if (!id) {
-    id = 'v-' + Math.random().toString(36).slice(2, 11) + Date.now().toString(36);
-    localStorage.setItem(VISITOR_KEY, id);
-  }
-  return id;
-}
-
 /* ---------------- YouTube helpers ---------------- */
 function parseYouTubeId(url) {
   if (!url) return null;
@@ -111,30 +98,22 @@ function thumbUrl(id) { return 'https://img.youtube.com/vi/' + id + '/mqdefault.
 function watchUrl(id) { return 'https://www.youtube.com/watch?v=' + id; }
 function openVideo(id) { window.open(watchUrl(id), '_blank', 'noopener,noreferrer'); }
 
-/* ---------------- Ratings math ---------------- */
-function getEntryRatings(entryId) { return ratingsMap[entryId] || {}; }
-function getAverage(entryId) {
-  const vals = Object.values(getEntryRatings(entryId));
-  if (!vals.length) return null;
-  return vals.reduce((a, b) => a + b, 0) / vals.length;
+/* ---------------- Ratings ---------------- */
+// Solo existe una calificación por entrada (no un promedio de varias
+// personas): quien la escriba, actualiza el valor que ven todos.
+function getScore(entryId) {
+  const val = ratingsMap[entryId];
+  return typeof val === 'number' ? val : null;
 }
-function getVoteCount(entryId) { return Object.keys(getEntryRatings(entryId)).length; }
-function getMyRating(entryId) { return getEntryRatings(entryId)[visitorId]; }
 
 async function submitRating(entryId, score) {
-  const ref = doc(db, 'ratings', entryId);
   try {
-    await updateDoc(ref, { ['votes.' + visitorId]: score });
+    await setDoc(doc(db, 'ratings', entryId), { score, updatedAt: Date.now() }, { merge: true });
   } catch (err) {
-    // si el documento de ratings todavía no existe, lo creamos
-    try {
-      await setDoc(ref, { votes: { [visitorId]: score } }, { merge: true });
-    } catch (err2) {
-      alert('No se pudo guardar tu calificación: ' + err2.message);
-    }
+    alert('No se pudo guardar la calificación: ' + err.message);
   }
   // no hace falta volver a dibujar a mano: el listener onSnapshot
-  // de "ratings" va a reaccionar solo para ti y para todos los demás.
+  // de "ratings" va a reaccionar solo para todos los que estén viendo la página.
 }
 
 /* ---------------- Admin (Firebase Authentication) ---------------- */
@@ -210,10 +189,9 @@ el.newSubmit.addEventListener('click', async () => {
   el.newSubmit.disabled = true;
   el.newSubmit.textContent = 'Agregando…';
   try {
-    const entryRef = await addDoc(collection(db, 'entries'), {
+    await addDoc(collection(db, 'entries'), {
       anime, number: number || null, type, videoId, addedAt: Date.now(),
     });
-    await setDoc(doc(db, 'ratings', entryRef.id), { votes: {} });
     el.newAnime.value = '';
     el.newNumber.value = '';
     el.newUrl.value = '';
@@ -301,12 +279,12 @@ function renderSidebar() {
 
 function renderTable() {
   const list = filteredEntries().slice().sort((a, b) => {
-    const avgA = getAverage(a.id);
-    const avgB = getAverage(b.id);
-    if (avgA === null && avgB === null) return b.addedAt - a.addedAt;
-    if (avgA === null) return 1;
-    if (avgB === null) return -1;
-    return avgB - avgA;
+    const scoreA = getScore(a.id);
+    const scoreB = getScore(b.id);
+    if (scoreA === null && scoreB === null) return b.addedAt - a.addedAt;
+    if (scoreA === null) return 1;
+    if (scoreB === null) return -1;
+    return scoreB - scoreA;
   });
 
   el.entryCount.textContent = list.length ? list.length + (list.length === 1 ? ' entrada' : ' entradas') : '';
@@ -320,9 +298,7 @@ function renderTable() {
   }
 
   list.forEach((entry, idx) => {
-    const avg = getAverage(entry.id);
-    const votes = getVoteCount(entry.id);
-    const mine = getMyRating(entry.id);
+    const score = getScore(entry.id);
 
     const tr = document.createElement('tr');
     if (idx < 3) tr.classList.add('rank-' + (idx + 1));
@@ -338,11 +314,10 @@ function renderTable() {
         '<span class="table-anime">' + escapeHtml(entry.anime) + '</span>' +
         '<span class="type-badge type-' + entry.type + '">' + escapeHtml(entryLabel(entry)) + '</span>' +
       '</td>' +
-      '<td class="col-avg">' + (avg === null ? '—' : avg.toFixed(1)) + '</td>' +
-      '<td class="col-votes">' + votes + '</td>' +
+      '<td class="col-avg">' + (score === null ? '—' : score.toFixed(1)) + '</td>' +
       '<td class="col-rate">' +
-        '<input type="number" min="0" max="10" step="0.1" class="rate-input" value="' + (mine !== undefined ? mine : '') + '" placeholder="0–10" data-id="' + entry.id + '">' +
-        '<button class="rate-btn" data-id="' + entry.id + '">' + (mine !== undefined ? 'Actualizar' : 'Calificar') + '</button>' +
+        '<input type="number" min="0" max="10" step="0.1" class="rate-input" value="' + (score !== null ? score : '') + '" placeholder="0–10" data-id="' + entry.id + '">' +
+        '<button class="rate-btn" data-id="' + entry.id + '">' + (score !== null ? 'Actualizar' : 'Calificar') + '</button>' +
       '</td>';
 
     el.tableBody.appendChild(tr);
@@ -400,8 +375,6 @@ el.sidebarToggle.addEventListener('click', () => {
 el.sidebarOverlay.addEventListener('click', closeSidebar);
 
 /* ---------------- Firestore listeners (tiempo real) ---------------- */
-visitorId = getVisitorId();
-
 const entriesQuery = query(collection(db, 'entries'), orderBy('addedAt', 'asc'));
 onSnapshot(entriesQuery, (snap) => {
   entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -414,7 +387,10 @@ onSnapshot(entriesQuery, (snap) => {
 
 onSnapshot(collection(db, 'ratings'), (snap) => {
   const map = {};
-  snap.docs.forEach((d) => { map[d.id] = (d.data() && d.data().votes) || {}; });
+  snap.docs.forEach((d) => {
+    const data = d.data();
+    if (data && typeof data.score === 'number') map[d.id] = data.score;
+  });
   ratingsMap = map;
   ratingsLoaded = true;
   hideDbStatusIfReady();
